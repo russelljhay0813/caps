@@ -24,27 +24,70 @@ const PROGRAMS = [
   "BS Nursing",
 ];
 
-const schema = z.object({
+const STRANDS = ["STEM", "ABM", "HUMSS", "TVL"];
+const JHS_GRADES = ["Grade 7", "Grade 8", "Grade 9", "Grade 10"];
+const SHS_GRADES = ["Grade 11", "Grade 12"];
+const COLLEGE_YEARS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
+
+const baseSchema = {
   firstName: z.string().trim().min(1, "Required").max(60),
   lastName: z.string().trim().min(1, "Required").max(60),
   email: z.string().trim().email("Invalid email").max(120),
   password: z.string().min(6, "Min 6 characters").max(72),
-  program: z.string().min(1, "Select a program"),
-  yearLevel: z.string().min(1, "Select year level"),
   contactNumber: z.string().trim().min(7, "Invalid").max(20),
   address: z.string().trim().min(1, "Required").max(200),
-});
+};
+
+const schema = z.discriminatedUnion("educationLevel", [
+  z.object({
+    ...baseSchema,
+    educationLevel: z.literal("College"),
+    program: z.string().min(1, "Select a program"),
+    yearLevel: z.string().min(1, "Select year level"),
+    gradeLevel: z.string().default(""),
+    strand: z.string().default(""),
+  }),
+  z.object({
+    ...baseSchema,
+    educationLevel: z.literal("JHS"),
+    program: z.string().default(""),
+    yearLevel: z.string().default(""),
+    gradeLevel: z.string().min(1, "Select grade level"),
+    strand: z.string().default(""),
+  }),
+  z.object({
+    ...baseSchema,
+    educationLevel: z.literal("SHS"),
+    program: z.string().default(""),
+    yearLevel: z.string().default(""),
+    gradeLevel: z.string().min(1, "Select grade level"),
+    strand: z.string().min(1, "Select strand"),
+  }),
+]);
 
 function RegisterPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     firstName: "", lastName: "", email: "", password: "",
-    program: "", yearLevel: "1st Year", contactNumber: "", address: "",
+    educationLevel: "College" as "JHS" | "SHS" | "College",
+    program: "", yearLevel: "1st Year",
+    gradeLevel: "", strand: "",
+    contactNumber: "", address: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
 
-  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const set = (k: string, v: string) => setForm((f) => {
+    const next = { ...f, [k]: v };
+    // Reset dependent fields when level changes
+    if (k === "educationLevel") {
+      next.program = "";
+      next.yearLevel = v === "College" ? "1st Year" : "";
+      next.gradeLevel = v === "JHS" ? "Grade 7" : v === "SHS" ? "Grade 11" : "";
+      next.strand = "";
+    }
+    return next;
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,6 +127,10 @@ function RegisterPage() {
     );
   }
 
+  const isCollege = form.educationLevel === "College";
+  const isJHS = form.educationLevel === "JHS";
+  const isSHS = form.educationLevel === "SHS";
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-2xl">
@@ -96,6 +143,14 @@ function RegisterPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="rounded-2xl border bg-card p-6 shadow-sm space-y-4">
+          <Field label="Education Level" error={errors.educationLevel}>
+            <select className="input" value={form.educationLevel} onChange={(e) => set("educationLevel", e.target.value)}>
+              <option value="JHS">Junior High School (Grade 7–10)</option>
+              <option value="SHS">Senior High School (Grade 11–12)</option>
+              <option value="College">College</option>
+            </select>
+          </Field>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="First Name" error={errors.firstName}>
               <input className="input" value={form.firstName} onChange={(e) => set("firstName", e.target.value)} />
@@ -109,17 +164,49 @@ function RegisterPage() {
             <Field label="Password" error={errors.password}>
               <input type="password" className="input" value={form.password} onChange={(e) => set("password", e.target.value)} />
             </Field>
-            <Field label="Program" error={errors.program}>
-              <select className="input" value={form.program} onChange={(e) => set("program", e.target.value)}>
-                <option value="">Select program...</option>
-                {PROGRAMS.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </Field>
-            <Field label="Year Level" error={errors.yearLevel}>
-              <select className="input" value={form.yearLevel} onChange={(e) => set("yearLevel", e.target.value)}>
-                {["1st Year", "2nd Year", "3rd Year", "4th Year"].map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </Field>
+
+            {isCollege && (
+              <>
+                <Field label="Program" error={errors.program}>
+                  <select className="input" value={form.program} onChange={(e) => set("program", e.target.value)}>
+                    <option value="">Select program...</option>
+                    {PROGRAMS.map((p) => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </Field>
+                <Field label="Year Level" error={errors.yearLevel}>
+                  <select className="input" value={form.yearLevel} onChange={(e) => set("yearLevel", e.target.value)}>
+                    {COLLEGE_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </Field>
+              </>
+            )}
+
+            {isJHS && (
+              <Field label="Grade Level" error={errors.gradeLevel}>
+                <select className="input" value={form.gradeLevel} onChange={(e) => set("gradeLevel", e.target.value)}>
+                  <option value="">Select grade...</option>
+                  {JHS_GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </Field>
+            )}
+
+            {isSHS && (
+              <>
+                <Field label="Grade Level" error={errors.gradeLevel}>
+                  <select className="input" value={form.gradeLevel} onChange={(e) => set("gradeLevel", e.target.value)}>
+                    <option value="">Select grade...</option>
+                    {SHS_GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </Field>
+                <Field label="Strand" error={errors.strand}>
+                  <select className="input" value={form.strand} onChange={(e) => set("strand", e.target.value)}>
+                    <option value="">Select strand...</option>
+                    {STRANDS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </Field>
+              </>
+            )}
+
             <Field label="Contact Number" error={errors.contactNumber}>
               <input className="input" value={form.contactNumber} onChange={(e) => set("contactNumber", e.target.value)} />
             </Field>

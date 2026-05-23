@@ -10,8 +10,11 @@ export interface StudentRegistration {
   lastName: string;
   email: string;
   password: string; // demo only - plaintext in localStorage
-  program: string;
-  yearLevel: string;
+  educationLevel: "JHS" | "SHS" | "College";
+  program: string; // college program (empty for JHS/SHS)
+  yearLevel: string; // college year level (empty for JHS/SHS)
+  gradeLevel: string; // JHS/SHS grade (empty for College)
+  strand: string; // SHS strand (empty otherwise)
   contactNumber: string;
   address: string;
   status: RegistrationStatus;
